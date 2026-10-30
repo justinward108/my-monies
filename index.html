@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Monies — personal cash-flow tracker</title>
+<style>
+  :root {
+    --bg: #14171c; --surface: #1b1f26; --surface2: #12151a;
+    --border: #262b33; --border2: #2c323c; --text: #e6e8eb;
+    --muted: #8b94a3; --hint: #6b7280; --green: #4fb477;
+    --amber: #e0a458; --red: #d9636c; --focus: #6c8bd9;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "SFMono-Regular", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); padding-bottom: 60px; }
+  input, select, button { font-family: inherit; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #333a44; border-radius: 4px; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end; padding: 20px 20px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
+  .logo { font-family: var(--font-mono); font-size: 20px; letter-spacing: 3px; font-weight: 700; }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .balance-badge { text-align: right; }
+  .zoom-controls { display: flex; align-items: center; gap: 6px; }
+  .zoom-btn {
+    background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-family: var(--font-mono);
+  }
+  .zoom-btn:hover { background: #191d24; }
+  .zoom-label { font-size: 11px; color: var(--muted); min-width: 34px; text-align: center; }
+  .balance-label { font-size: 10px; color: var(--muted); }
+  .balance-num { font-family: var(--font-mono); font-size: 20px; font-weight: 700; }
+
+  nav.tabs { display: flex; gap: 4px; padding: 12px 16px 0; overflow-x: auto; }
+  nav.tabs button { background: transparent; border: none; color: var(--muted); padding: 8px 14px; font-size: 13px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  nav.tabs button.active { background: #1f242c; color: var(--text); font-weight: 600; }
+
+  main { padding: 16px; max-width: min(1100px, 96vw); margin: 0 auto; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; overflow-x: auto; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } .grid3 { grid-template-columns: 1fr; } }
+  @media (min-width: 481px) and (max-width: 720px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+
+  .card-title { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #a7afba; margin-bottom: 10px; font-weight: 600; }
+  .card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .big-num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
+  .hint { font-size: 11px; color: var(--hint); margin-top: 4px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .field-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 11px; color: var(--muted); }
+
+  .input-inline { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: var(--font-mono); }
+  .add-btn { display: inline-flex; align-items: center; gap: 4px; background: #242a33; border: 1px solid #333a44; color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .add-btn:hover { background: #2a313c; }
+  .primary-btn { background: #2f5fb0; border: 1px solid #3a6fc4; color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; font-weight: 600; }
+  .primary-btn:hover { background: #366bc4; }
+
+  .item-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid #232830; flex-wrap: wrap; }
+  .input-flex { flex: 1; min-width: 100px; background: transparent; border: none; color: var(--text); font-size: 13px; padding: 4px 0; font-weight: 600; }
+  .input-small { width: 84px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 4px 6px; font-size: 13px; font-family: var(--font-mono); color: var(--text); }
+  .day-wrap { display: flex; align-items: center; gap: 4px; }
+  .input-day { width: 44px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 4px 6px; font-size: 13px; color: var(--text); font-family: var(--font-mono); }
+  select.acct-select { background: var(--surface2); border: 1px solid var(--border2); color: #a7afba; border-radius: 6px; padding: 4px 6px; font-size: 12px; max-width: 160px; }
+  select.freq-select { background: var(--surface2); border: 1px solid var(--border2); color: #a7afba; border-radius: 6px; padding: 4px 6px; font-size: 12px; max-width: 130px; }
+  select.type-select { background: var(--surface2); border: 1px solid var(--border2); color: #a7afba; border-radius: 6px; padding: 4px 6px; font-size: 12px; max-width: 90px; }
+  .delete-btn { background: transparent; border: none; color: var(--hint); cursor: pointer; padding: 4px; display: flex; align-items: center; }
+  .delete-btn:hover { color: var(--red); }
+
+  .freq-fields { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  .account-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #232830; flex-wrap: wrap; }
+  .account-row-name { font-size: 14px; font-weight: 600; }
+  .account-row-nums { text-align: right; min-width: 90px; }
+
+  .upcoming-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #232830; }
+  .upcoming-label { font-size: 13px; font-weight: 600; }
+  .upcoming-meta { font-size: 11px; color: var(--hint); }
+  .upcoming-amt { font-family: var(--font-mono); font-weight: 700; }
+
+  .toggle-row { display: flex; gap: 6px; }
+  .toggle-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+  .toggle-btn.active { background: #242a33; color: var(--text); font-weight: 600; }
+
+  .history-header, .history-row { display: flex; font-size: 13px; }
+  .history-header { font-size: 11px; color: var(--hint); padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .history-row { padding: 8px 0; border-bottom: 1px solid #1f242c; }
+  .hist-col { width: 110px; text-align: right; font-family: var(--font-mono); }
+  .hist-name { flex: 1; }
+
+  .result-box { margin-top: 14px; padding: 14px; border-radius: 10px; border: 1px solid; }
+  .warn-box { padding: 10px 12px; border-radius: 8px; border: 1px solid #e0a45855; background: #e0a45812; margin-top: 8px; font-size: 12.5px; }
+  .ok-box { padding: 10px 12px; border-radius: 8px; border: 1px solid #4fb47755; background: #4fb47712; margin-top: 8px; font-size: 12.5px; }
+
+  .icon { display: inline-block; width: 15px; height: 15px; vertical-align: -3px; }
+  .backup-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .backup-btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 12px; cursor: pointer; }
+  .backup-btn:hover { background: #191d24; }
+  #importFile { display: none; }
+  label.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">MY MONIES</div>
+    <div class="logo-sub">personal cash-flow tracker</div>
+  </div>
+  <div class="zoom-controls">
+    <button class="zoom-btn" id="zoomOutBtn" title="Smaller text">A−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button class="zoom-btn" id="zoomInBtn" title="Bigger text">A+</button>
+  </div>
+  <div class="balance-badge">
+    <div class="balance-label" id="balanceLabel">combined, as of —</div>
+    <div class="balance-num" id="balanceNum">$0.00</div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+<main><div id="tabContent"></div></main>
+<input type="file" id="importFile" accept="application/json" />
+
+<script>
+// ================= helpers =================
+const uid = () => Math.random().toString(36).slice(2, 10);
+const money = (n) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const todayISO = () => new Date().toISOString().slice(0, 10);
+function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+function dateForDay(y, m, day) { const d = Math.min(day, daysInMonth(y, m)); return new Date(y, m, d); }
+function daysUntil(dateStr) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  const t = new Date(dateStr); t.setHours(0,0,0,0);
+  return Math.round((t - now) / 86400000);
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+// ---------- password-based encryption for backups ----------
+function bufToBase64(buf) {
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+function base64ToBuf(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+async function encryptBackup(plainObj, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const enc = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(plainObj)));
+  return { myMoniesEncrypted: true, salt: bufToBase64(salt), iv: bufToBase64(iv), ciphertext: bufToBase64(ciphertext) };
+}
+async function decryptBackup(encObj, password) {
+  const salt = new Uint8Array(base64ToBuf(encObj.salt));
+  const iv = new Uint8Array(base64ToBuf(encObj.iv));
+  const key = await deriveKey(password, salt);
+  const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, base64ToBuf(encObj.ciphertext));
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+function fmtDate(d) { return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+
+// ---- US federal holidays + weekend adjustment ----
+function nthWeekday(year, month, weekday, n) {
+  if (n > 0) {
+    let d = new Date(year, month, 1);
+    let count = 0;
+    while (true) {
+      if (d.getDay() === weekday) { count++; if (count === n) return new Date(d); }
+      d.setDate(d.getDate() + 1);
+    }
+  } else {
+    let d = new Date(year, month + 1, 0);
+    while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
+    return new Date(d);
+  }
+}
+function observedDate(date) {
+  const dow = date.getDay();
+  if (dow === 6) { const d = new Date(date); d.setDate(d.getDate() - 1); return d; }
+  if (dow === 0) { const d = new Date(date); d.setDate(d.getDate() + 1); return d; }
+  return date;
+}
+function getUSFederalHolidays(year) {
+  const list = [
+    new Date(year, 0, 1), nthWeekday(year, 0, 1, 3), nthWeekday(year, 1, 1, 3),
+    nthWeekday(year, 4, 1, -1), new Date(year, 5, 19), new Date(year, 6, 4),
+    nthWeekday(year, 8, 1, 1), nthWeekday(year, 9, 1, 2), new Date(year, 10, 11),
+    nthWeekday(year, 10, 4, 4), new Date(year, 11, 25),
+  ];
+  const set = new Set();
+  list.forEach(d => set.add(observedDate(d).toISOString().slice(0, 10)));
+  return set;
+}
+const holidayCache = {};
+function isHoliday(date) {
+  const y = date.getFullYear();
+  if (!holidayCache[y]) holidayCache[y] = getUSFederalHolidays(y);
+  return holidayCache[y].has(date.toISOString().slice(0, 10));
+}
+function isWeekend(date) { const d = date.getDay(); return d === 0 || d === 6; }
+function isBusinessDay(date) { return !isWeekend(date) && !isHoliday(date); }
+function adjustDate(date, mode) {
+  if (mode !== "earlier" && mode !== "later") return date;
+  let d = new Date(date);
+  const step = mode === "earlier" ? -1 : 1;
+  while (!isBusinessDay(d)) d.setDate(d.getDate() + step);
+  return d;
+}
+
+const FREQ_LABELS = { monthly: "Monthly", semimonthly: "Twice a month", biweekly: "Every 2 weeks", every30days: "Every 30 days" };
+
+function freshRecurringItem(accountId) {
+  return {
+    id: uid(), name: "New item", amount: 0, accountId, frequency: "monthly",
+    dayOfMonth: 1, daysOfMonth: [1, 15], anchorDate: todayISO(),
+    temporary: false, endMode: "count", occurrenceCount: 4, endDate: todayISO(),
+    businessDayAdjust: "none", exceptions: [], downPayment: null, categoryId: null,
+  };
+}
+
+const DEFAULT_DATA = {
+  startingDate: todayISO(),
+  accounts: [{ id: uid(), name: "Checking", balance: 0, type: "asset", interestRate: 0, interestDay: 1 }],
+  income: [],
+  recurring: [],
+  oneTime: [],
+  scenario: [],
+  transfers: [],
+  categories: [],
+};
+
+function freshTransferItem(fromAccountId, toAccountId) {
+  return {
+    id: uid(), name: "Transfer", amount: 0, fee: 0, fromAccountId, toAccountId, frequency: "once",
+    dayOfMonth: 1, daysOfMonth: [1, 15], anchorDate: todayISO(),
+    temporary: false, endMode: "count", occurrenceCount: 4, endDate: todayISO(),
+    businessDayAdjust: "none", exceptions: [], downPayment: null,
+  };
+}
+
+const STORAGE_KEY = "ledger-budget-data";
+
+// ================= storage =================
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      migrate(parsed);
+      return parsed;
+    }
+  } catch (e) { console.error("load error", e); }
+  return structuredClone(DEFAULT_DATA);
+}
+function migrate(d) {
+  if (!d.scenario) d.scenario = [];
+  if (!d.transfers) d.transfers = [];
+  if (!d.categories) d.categories = [];
+  (d.accounts || []).forEach(a => {
+    if (!a.type) a.type = "asset";
+    if (a.interestRate === undefined) a.interestRate = 0;
+    if (!a.interestDay) a.interestDay = 1;
+  });
+  [...(d.income||[]), ...(d.recurring||[]), ...(d.transfers||[])].forEach(item => {
+    if (!item.frequency) item.frequency = "monthly";
+    if (item.dayOfMonth === undefined) item.dayOfMonth = 1;
+    if (!item.daysOfMonth) item.daysOfMonth = [1, 15];
+    if (!item.anchorDate) item.anchorDate = todayISO();
+    if (item.temporary === undefined) item.temporary = false;
+    if (!item.endMode) item.endMode = "count";
+    if (item.occurrenceCount === undefined) item.occurrenceCount = 4;
+    if (!item.endDate) item.endDate = todayISO();
+    if (!item.businessDayAdjust) item.businessDayAdjust = "none";
+    if (!item.exceptions) item.exceptions = [];
+    if (item.downPayment === undefined) item.downPayment = null;
+  });
+  [...(d.income||[]), ...(d.recurring||[])].forEach(item => {
+    if (item.categoryId === undefined) item.categoryId = null;
+  });
+  (d.transfers || []).forEach(item => { if (item.fee === undefined) item.fee = 0; });
+  (d.oneTime||[]).forEach(item => {
+    if (!item.type) item.type = "expense";
+    if (!item.businessDayAdjust) item.businessDayAdjust = "none";
+    if (item.categoryId === undefined) item.categoryId = null;
+  });
+}
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch (e) { console.error("save error", e); }
+}
+
+let data = loadData();
+let tab = "Dashboard";
+
+// ================= projection engine =================
+function occurrencesInRange(item, rangeStart, rangeEnd) {
+  const dates = [];
+  const mode = item.businessDayAdjust || "none";
+  if (item.frequency === "once") {
+    const d = adjustDate(new Date(item.anchorDate), mode);
+    if (d >= rangeStart && d <= rangeEnd) dates.push(d);
+    return dates;
+  }
+  if (item.frequency === "biweekly" || item.frequency === "every30days") {
+    const intervalDays = item.frequency === "biweekly" ? 14 : 30;
+    let anchor = new Date(item.anchorDate || rangeStart);
+    anchor.setHours(0,0,0,0);
+    let d = new Date(anchor);
+    if (d < rangeStart) {
+      const diffDays = Math.round((rangeStart - d) / 86400000);
+      const periods = Math.ceil(diffDays / intervalDays);
+      d = new Date(d.getTime() + periods * intervalDays * 86400000);
+    }
+    while (d <= rangeEnd) {
+      if (d >= rangeStart) dates.push(adjustDate(d, mode));
+      d = new Date(d.getTime() + intervalDays * 86400000);
+    }
+  } else {
+    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endCursor = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    while (cursor <= endCursor) {
+      const y = cursor.getFullYear(), m = cursor.getMonth();
+      if (item.frequency === "semimonthly") {
+        (item.daysOfMonth || [1, 15]).forEach(day => {
+          const d = dateForDay(y, m, day);
+          if (d >= rangeStart && d <= rangeEnd) dates.push(adjustDate(d, mode));
+        });
+      } else {
+        const d = dateForDay(y, m, item.dayOfMonth || 1);
+        if (d >= rangeStart && d <= rangeEnd) dates.push(adjustDate(d, mode));
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+  }
+  return dates;
+}
+
+function occurrencesWithLimits(item, rangeStart, rangeEnd) {
+  let dates = occurrencesInRange(item, rangeStart, rangeEnd);
+  if (!item.temporary) return dates;
+  if (item.endMode === "date" && item.endDate) {
+    const end = new Date(item.endDate);
+    dates = dates.filter(d => d <= end);
+  } else if (item.endMode === "count" && item.occurrenceCount) {
+    const anchor = new Date(item.anchorDate || rangeStart);
+    const fullSeries = occurrencesInRange(item, anchor < rangeStart ? anchor : rangeStart, rangeEnd);
+    const limited = fullSeries.slice(0, item.occurrenceCount);
+    const limitedSet = new Set(limited.map(d => d.getTime()));
+    dates = dates.filter(d => limitedSet.has(d.getTime()));
+  }
+  return dates;
+}
+
+function applyExceptions(item, dates) {
+  const excMap = new Map((item.exceptions || []).map(e => [e.originalDate, e]));
+  const result = [];
+  for (const d of dates) {
+    const key = d.toISOString().slice(0, 10);
+    const exc = excMap.get(key);
+    if (exc) {
+      if (exc.action === "skip") continue;
+      if (exc.action === "amount") {
+        result.push({ date: d, amount: (exc.newAmount !== null && exc.newAmount !== undefined && exc.newAmount !== "") ? parseFloat(exc.newAmount) : null });
+        continue;
+      }
+      if (exc.action === "move") {
+        result.push({ date: new Date(exc.newDate || key), amount: (exc.newAmount !== null && exc.newAmount !== undefined && exc.newAmount !== "") ? parseFloat(exc.newAmount) : null });
+        continue;
+      }
+    }
+    result.push({ date: d, amount: null });
+  }
+  return result;
+}
+
+function firstOccurrenceDate(item) {
+  const anchor = new Date(item.anchorDate || data.startingDate);
+  const farFuture = new Date(anchor);
+  farFuture.setFullYear(farFuture.getFullYear() + 5);
+  const series = occurrencesWithLimits(item, anchor, farFuture);
+  return series.length ? series[0] : null;
+}
+
+function resolveAmounts(item, dates) {
+  const afterExceptions = applyExceptions(item, dates);
+  if (item.downPayment === null || item.downPayment === undefined || item.downPayment === "") return afterExceptions;
+  const firstDate = firstOccurrenceDate(item);
+  const firstKey = firstDate ? firstDate.toISOString().slice(0, 10) : null;
+  return afterExceptions.map(o => {
+    if (o.amount == null && firstKey && o.date.toISOString().slice(0, 10) === firstKey) {
+      return { date: o.date, amount: parseFloat(item.downPayment) };
+    }
+    return o;
+  });
+}
+
+function buildEvents(startDate, endDate) {
+  const events = [];
+  const accountName = (id) => data.accounts.find(a => a.id === id)?.name || "Unassigned";
+
+  for (const item of data.oneTime) {
+    const raw = new Date(item.date);
+    const d = adjustDate(raw, item.businessDayAdjust || "none");
+    if (d >= startDate && d <= endDate) {
+      const sign = item.type === "income" ? 1 : -1;
+      events.push({ date: d, amount: sign * Math.abs(item.amount), label: item.name, kind: item.type === "income" ? "one-time income" : "one-time expense", accountId: item.accountId, accountName: accountName(item.accountId), categoryId: item.categoryId || null });
+    }
+  }
+  for (const exp of data.recurring) {
+    resolveAmounts(exp, occurrencesWithLimits(exp, startDate, endDate)).forEach(o => {
+      const amt = o.amount != null ? o.amount : exp.amount;
+      events.push({ date: o.date, amount: -Math.abs(amt), label: exp.name, kind: "recurring expense", accountId: exp.accountId, accountName: accountName(exp.accountId), categoryId: exp.categoryId || null });
+    });
+  }
+  for (const inc of data.income) {
+    resolveAmounts(inc, occurrencesWithLimits(inc, startDate, endDate)).forEach(o => {
+      const amt = o.amount != null ? o.amount : inc.amount;
+      events.push({ date: o.date, amount: Math.abs(amt), label: inc.name, kind: "income", accountId: inc.accountId, accountName: accountName(inc.accountId), categoryId: inc.categoryId || null });
+    });
+  }
+  for (const tr of data.transfers) {
+    resolveAmounts(tr, occurrencesWithLimits(tr, startDate, endDate)).forEach(o => {
+      const sentAmt = Math.abs(o.amount != null ? o.amount : tr.amount);
+      const fee = Math.abs(tr.fee || 0);
+      const receivedAmt = Math.max(0, sentAmt - fee);
+      const fromName = accountName(tr.fromAccountId), toName = accountName(tr.toAccountId);
+      events.push({ date: o.date, amount: -sentAmt, label: `${tr.name} → ${toName}`, kind: "transfer out", accountId: tr.fromAccountId, accountName: fromName, categoryId: null });
+      events.push({ date: o.date, amount: receivedAmt, label: fee > 0 ? `${tr.name} ← ${fromName} (after fee)` : `${tr.name} ← ${fromName}`, kind: "transfer in", accountId: tr.toAccountId, accountName: toName, categoryId: null });
+    });
+  }
+  events.sort((a, b) => a.date - b.date);
+  return events;
+}
+
+function generateInterestDates(account, rangeStart, rangeEnd) {
+  const dates = [];
+  if (!account.interestRate) return dates;
+  const day = account.interestDay || 1;
+  const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  const endCursor = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+  while (cursor <= endCursor) {
+    const d = dateForDay(cursor.getFullYear(), cursor.getMonth(), day);
+    if (d > rangeStart && d <= rangeEnd) dates.push(d);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return dates;
+}
+
+function accountBalanceAt(account, targetDate) {
+  const start = new Date(data.startingDate);
+  if (targetDate < start) {
+    // backward-in-time queries: simple reversal, interest not un-compounded (rare edge case)
+    const events = buildEvents(targetDate, start).filter(e => e.accountId === account.id);
+    let bal = account.balance;
+    for (const e of events) { if (e.date > targetDate && e.date <= start) bal -= e.amount; }
+    return bal;
+  }
+  const realEvents = buildEvents(start, targetDate)
+    .filter(e => e.accountId === account.id)
+    .map(e => ({ date: e.date, isInterest: false, amount: e.amount }));
+  const interestEvents = generateInterestDates(account, start, targetDate).map(d => ({ date: d, isInterest: true }));
+  const timeline = [...realEvents, ...interestEvents].sort((a, b) => a.date - b.date);
+  let bal = account.balance;
+  for (const e of timeline) {
+    if (e.isInterest) bal += bal * ((account.interestRate || 0) / 100 / 12);
+    else bal += e.amount;
+  }
+  return bal;
+}
+function balanceAt(targetDate, accountId = null) {
+  if (accountId) {
+    const acc = data.accounts.find(a => a.id === accountId);
+    return acc ? accountBalanceAt(acc, targetDate) : 0;
+  }
+  // credit card balances are stored negative already, so a plain sum is the correct net worth
+  return data.accounts.reduce((sum, a) => sum + accountBalanceAt(a, targetDate), 0);
+}
+function monthlyNet(accountId = null) {
+  // approximate monthly-equivalent net regardless of underlying frequency
+  const perMonth = (item) => {
+    if (item.frequency === "biweekly") return Math.abs(item.amount) * (365.25 / 14 / 12);
+    if (item.frequency === "semimonthly") return Math.abs(item.amount) * 2;
+    return Math.abs(item.amount);
+  };
+  const inc = data.income.filter(i => !accountId || i.accountId === accountId).reduce((s, i) => s + perMonth(i), 0);
+  const exp = data.recurring.filter(e => !accountId || e.accountId === accountId).reduce((s, e) => s + perMonth(e), 0);
+  return inc - exp;
+}
+
+// scenario helpers
+function scenarioEvents(accountId = null) {
+  return data.scenario.filter(s => !accountId || s.accountId === accountId).map(s => ({
+    date: new Date(s.date), amount: (s.type === "income" ? 1 : -1) * Math.abs(s.amount),
+    label: s.name, kind: s.type === "income" ? "scenario income" : "scenario expense", accountId: s.accountId,
+  }));
+}
+
+function projectAccountTimeline(account, extraEvents, horizonEnd) {
+  const start = new Date(data.startingDate);
+  let events = buildEvents(start, horizonEnd).filter(e => e.accountId === account.id);
+  if (extraEvents && extraEvents.length) events = events.concat(extraEvents.filter(e => e.accountId === account.id));
+  const realEvents = events.map(e => ({ date: e.date, isInterest: false, amount: e.amount }));
+  const interestEvents = generateInterestDates(account, start, horizonEnd).map(d => ({ date: d, isInterest: true }));
+  const timeline = [...realEvents, ...interestEvents].sort((a, b) => a.date - b.date);
+  let bal = account.balance;
+  let firstNegative = null;
+  for (const e of timeline) {
+    if (e.isInterest) bal += bal * ((account.interestRate || 0) / 100 / 12);
+    else bal += e.amount;
+    // credit card balances are stored negative already — going more negative isn't a new "shortfall"
+    if (account.type !== "credit" && bal < 0 && !firstNegative) firstNegative = { date: e.date, balance: bal };
+  }
+  return { finalBalance: bal, firstNegative };
+}
+
+function findEarliestAffordableDate(amount, accountId, includeScenario, horizonDays = 730) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const horizonEnd = new Date(today); horizonEnd.setDate(horizonEnd.getDate() + horizonDays);
+  let checkDate = new Date(today);
+  while (checkDate <= horizonEnd) {
+    let bal = balanceAt(checkDate, accountId);
+    if (includeScenario) {
+      bal += scenarioEvents(accountId).filter(e => e.date <= checkDate).reduce((s, e) => s + e.amount, 0);
+    }
+    if (bal >= amount) return checkDate;
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  return null;
+}
+
+// ================= rendering =================
+const TABS = ["Dashboard", "Accounts", "Income", "Expenses", "Transfers", "History", "What if", "Help"];
+
+function render() {
+  const total = data.accounts.reduce((s, a) => s + a.balance, 0);
+  document.getElementById("balanceLabel").textContent = `net worth, as of ${data.startingDate}`;
+  document.getElementById("balanceNum").textContent = money(total);
+
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  TABS.forEach(t => {
+    const b = document.createElement("button");
+    b.textContent = t;
+    if (t === tab) b.classList.add("active");
+    b.onclick = () => { tab = t; render(); };
+    tabsEl.appendChild(b);
+  });
+
+  const content = document.getElementById("tabContent");
+  if (tab === "Dashboard") content.innerHTML = renderDashboard();
+  else if (tab === "Accounts") content.innerHTML = renderAccounts();
+  else if (tab === "Income") content.innerHTML = renderIncome();
+  else if (tab === "Expenses") content.innerHTML = renderExpenses();
+  else if (tab === "Transfers") content.innerHTML = renderTransfers();
+  else if (tab === "History") content.innerHTML = renderHistory();
+  else if (tab === "What if") content.innerHTML = renderWhatIf();
+  else if (tab === "Help") content.innerHTML = renderHelp();
+
+  attachHandlers();
+}
+
+function svgIcon(name, color) {
+  const c = color || "currentColor";
+  const icons = {
+    calendar: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+    wallet: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4z"/></svg>`,
+    warn: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>`,
+    up: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>`,
+    down: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M23 18l-9.5-9.5-5 5L1 6"/><path d="M17 18h6v-6"/></svg>`,
+    layers: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/></svg>`,
+    piggy: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M19 5c-1.5-2-3.7-3-6-3-4.4 0-8 3.6-8 8 0 2 .7 3.8 2 5.2V19a1 1 0 001 1h2a1 1 0 001-1v-1h4v1a1 1 0 001 1h2a1 1 0 001-1v-3.8"/><circle cx="16" cy="10" r="1"/></svg>`,
+    plus: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
+    trash: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>`,
+    compass: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36z"/></svg>`,
+  };
+  return icons[name] || "";
+}
+
+function renderDashboard() {
+  const now = new Date(); now.setHours(0,0,0,0);
+  const in14 = new Date(now); in14.setDate(in14.getDate() + 14);
+  const upcoming = buildEvents(now, in14).sort((a,b) => a.date - b.date);
+  const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+  const in180 = new Date(); in180.setDate(in180.getDate() + 180);
+  const totalNet = monthlyNet();
+  const totalProjected30 = balanceAt(in30);
+
+  const totalAssets = data.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + a.balance, 0);
+  const totalDebts = data.accounts.filter(a => a.type === "credit").reduce((s, a) => s + Math.abs(a.balance), 0);
+  const netWorthNow = totalAssets - totalDebts;
+
+  let html = `<div class="stack">
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">net worth</div>
+        <div class="big-num" style="color:${netWorthNow>=0?'#e6e8eb':'#d9636c'}">${money(netWorthNow)}</div>
+        <div class="hint">assets minus debts</div>
+      </div>
+      <div class="card">
+        <div class="card-title">${svgIcon('up','#4fb477')} total assets</div>
+        <div class="big-num" style="color:#4fb477">${money(totalAssets)}</div>
+        <div class="hint">excluding any debt</div>
+      </div>
+      <div class="card">
+        <div class="card-title">${svgIcon('down','#d9636c')} total debts</div>
+        <div class="big-num" style="color:#d9636c">${money(totalDebts)}</div>
+        <div class="hint">excluding assets</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">${svgIcon('calendar')} balances as of</div>
+      <input type="date" id="startingDateInput" class="input-inline" value="${data.startingDate}" />
+      <div class="hint">This is the reference date for every account balance below. Update account balances in the Accounts tab whenever you check your real numbers.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">${svgIcon(totalNet>=0?'up':'down', totalNet>=0?'#4fb477':'#d9636c')} combined monthly net</div>
+        <div class="big-num" style="color:${totalNet>=0?'#4fb477':'#d9636c'}">${money(totalNet)}</div>
+        <div class="hint">all income minus all recurring expenses, normalized to a monthly rate</div>
+      </div>
+      <div class="card">
+        <div class="card-title">${svgIcon('layers')} net worth in 30 days</div>
+        <div class="big-num" style="color:${totalProjected30>=0?'#e6e8eb':'#d9636c'}">${money(totalProjected30)}</div>
+        <div class="hint">sum across all accounts, credit cards counted as debt</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">${svgIcon('wallet')} per-account picture</div>`;
+
+  data.accounts.forEach(a => {
+    const isCredit = a.type === "credit";
+    const proj = balanceAt(in30, a.id);
+    const net = monthlyNet(a.id);
+    const timeline = projectAccountTimeline(a, [], in180);
+    html += `<div class="account-row">
+      <div style="flex:1">
+        <div class="account-row-name">${esc(a.name)}${isCredit ? ' <span class="hint">(credit card)</span>' : ''}</div>
+        <div class="hint">${net>=0?'+':''}${money(net)}/mo net${a.interestRate ? ` · ${a.interestRate}% APR` : ''}</div>
+        ${timeline.firstNegative
+          ? `<div class="hint" style="color:#e0a458">⚠ projected to dip to ${money(timeline.firstNegative.balance)} around ${fmtDate(timeline.firstNegative.date)}</div>`
+          : `<div class="hint" style="color:#4fb477">no shortfall projected in next 6 months</div>`}
+      </div>
+      <div class="account-row-nums"><div class="hint">now</div><div style="font-family:var(--font-mono);font-weight:700;color:${a.balance<0?'#d9636c':'#e6e8eb'}">${money(a.balance)}</div></div>
+      <div class="account-row-nums"><div class="hint">in 30 days</div><div style="font-family:var(--font-mono);font-weight:700;color:${proj>=0?'#e6e8eb':'#d9636c'}">${money(proj)}</div></div>
+    </div>`;
+  });
+
+  html += `</div>
+    <div class="card">
+      <div class="card-title">${svgIcon('warn', '#e0a458')} activity landing in the next 14 days</div>`;
+  if (upcoming.length === 0) html += `<div class="hint">Nothing scheduled. Quiet stretch.</div>`;
+  upcoming.forEach(e => {
+    const dstr = e.date.toISOString().slice(0,10);
+    const dleft = daysUntil(dstr);
+    const isIncome = e.amount > 0;
+    html += `<div class="upcoming-row">
+      <div>
+        <div class="upcoming-label">${esc(e.label)}</div>
+        <div class="upcoming-meta">${esc(e.accountName)} · ${dleft<=0?'today':`in ${dleft} day${dleft===1?'':'s'}`}</div>
+      </div>
+      <div class="upcoming-amt" style="color:${isIncome?'#4fb477':'#d9636c'}">${money(e.amount)}</div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function renderAccounts() {
+  let html = `<div class="stack"><div class="card">
+    <div class="card-title-row">
+      <div class="card-title">accounts &amp; current balances</div>
+      <button class="add-btn" id="addAccountBtn">${svgIcon('plus')} add account</button>
+    </div>`;
+  data.accounts.forEach((a, i) => {
+    const isCredit = a.type === "credit";
+    html += `<div class="item-row" data-account-id="${a.id}" style="flex-direction:column;align-items:stretch">
+      <div class="item-row" style="border:none;padding:0">
+        ${reorderButtonsHtml(true, i===0, i===data.accounts.length-1, 'acct-moveup', 'acct-movedown')}
+        <input class="input-flex acct-name" value="${esc(a.name)}" />
+        <select class="freq-select acct-type">
+          <option value="asset" ${!isCredit?'selected':''}>Asset (checking/savings)</option>
+          <option value="credit" ${isCredit?'selected':''}>Credit card</option>
+        </select>
+        <div class="day-wrap"><span class="hint">${isCredit ? 'owed' : 'balance'}</span>
+          <input type="number" step="0.01" class="input-small acct-balance" value="${isCredit ? Math.abs(a.balance) : a.balance}" />
+        </div>
+        ${data.accounts.length > 1 ? `<button class="delete-btn acct-delete">${svgIcon('trash')}</button>` : ''}
+      </div>
+      <div class="freq-fields" style="margin-top:6px">
+        <span class="hint">interest rate</span>
+        <input type="number" step="0.01" class="input-small acct-rate" value="${a.interestRate || 0}" style="width:70px" />
+        <span class="hint">% APR ${isCredit ? '(charged monthly on what you owe)' : '(earned monthly)'} — negative is allowed</span>
+      </div>
+      ${a.interestRate ? `<div class="freq-fields" style="margin-top:4px">
+        <span class="hint">posts on day</span>
+        <input type="number" min="1" max="28" class="input-day acct-interestday" value="${a.interestDay || 1}" />
+        <span class="hint">of each month</span>
+      </div>` : ''}
+    </div>`;
+  });
+  html += `<div class="hint">Each account's balance is tracked separately — income and expenses only affect the account they're assigned to. Credit card balances count as debt: they subtract from your combined total instead of adding to it.</div>
+  </div>
+  <div class="card">
+    <div class="card-title">backup</div>
+    <div class="backup-row">
+      <button class="backup-btn" id="exportBtn">Export data (.json)</button>
+      <button class="backup-btn" id="exportEncryptedBtn">Export encrypted (.json)</button>
+      <button class="backup-btn" id="importBtn">Import data (.json)</button>
+    </div>
+    <div class="hint">Everything is stored only in this browser on this device. Export a backup before switching computers or clearing browser data — import it on the new device to pick up where you left off. "Export encrypted" locks the backup file with a password — anyone who finds the file can't read it without that password, real encryption rather than just a screen lock. Import auto-detects either type and asks for the password when needed. There's no way to recover an encrypted backup if you forget the password, so keep it somewhere safe.</div>
+  </div>
+  </div>`;
+  return html;
+}
+
+function accountOptions(selectedId) {
+  return data.accounts.map(a => `<option value="${a.id}" ${a.id===selectedId?'selected':''}>${esc(a.name)}</option>`).join("");
+}
+
+function categoryOptions(selectedId) {
+  const selectedCat = data.categories.find(c => c.id === selectedId);
+  let opts = `<option value="" ${!selectedId?'selected':''}>— none —</option>`;
+  data.categories.filter(c => !c.archived || c.id === selectedId).forEach(c => {
+    opts += `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${esc(c.name)}${c.archived?' (archived)':''}</option>`;
+  });
+  return opts;
+}
+
+function moveItem(arr, index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= arr.length) return;
+  const tmp = arr[index];
+  arr[index] = arr[target];
+  arr[target] = tmp;
+}
+
+function renderCategoryManager() {
+  let html = `<div class="card">
+    <div class="card-title-row">
+      <div class="card-title">categories <span class="hint">— shared between income and expenses</span></div>
+      <button class="add-btn" id="addCategoryBtn">${svgIcon('plus')} add category</button>
+    </div>`;
+  if (data.categories.length === 0) html += `<div class="hint">No categories yet — add one to start organizing your income and expenses.</div>`;
+  data.categories.forEach(c => {
+    html += `<div class="item-row" data-cat-id="${c.id}">
+      <input class="input-flex cat-name" value="${esc(c.name)}" style="${c.archived?'opacity:0.5':''}" />
+      <label class="checkbox-label"><input type="checkbox" class="cat-archived" ${c.archived?'checked':''}/> archived</label>
+      <button class="delete-btn cat-delete">${svgIcon('trash')}</button>
+    </div>`;
+  });
+  html += `<div class="hint">Archiving a category hides it from the picker for new entries but keeps it (and any history) intact on things already using it.</div></div>`;
+  return html;
+}
+
+function attachCategoryManagerHandlers() {
+  const addBtn = document.getElementById("addCategoryBtn");
+  if (addBtn) addBtn.onclick = () => { data.categories.push({ id: uid(), name: "New category", archived: false }); saveData(); render(); };
+  document.querySelectorAll('[data-cat-id]').forEach(row => {
+    const id = row.getAttribute('data-cat-id');
+    const cat = data.categories.find(c => c.id === id);
+    if (!cat) return;
+    row.querySelector('.cat-name').onchange = e => { cat.name = e.target.value; saveData(); render(); };
+    row.querySelector('.cat-archived').onchange = e => { cat.archived = e.target.checked; saveData(); render(); };
+    row.querySelector('.cat-delete').onclick = () => {
+      data.categories = data.categories.filter(x => x.id !== id);
+      [...data.income, ...data.recurring, ...data.oneTime].forEach(item => { if (item.categoryId === id) item.categoryId = null; });
+      saveData(); render();
+    };
+  });
+}
+
+function sortAndFilterItems(items, sortMode, categoryFilter) {
+  let list = categoryFilter && categoryFilter !== "ALL"
+    ? items.filter(it => (categoryFilter === "NONE" ? !it.categoryId : it.categoryId === categoryFilter))
+    : items.slice();
+  const categoryName = (id) => data.categories.find(c => c.id === id)?.name || "";
+  if (sortMode === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sortMode === "amount-desc") list.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  else if (sortMode === "amount-asc") list.sort((a, b) => Math.abs(a.amount) - Math.abs(b.amount));
+  else if (sortMode === "category") list.sort((a, b) => categoryName(a.categoryId).localeCompare(categoryName(b.categoryId)));
+  return list;
+}
+
+function categoryFilterOptionsHtml(selected) {
+  let html = `<option value="ALL" ${selected==='ALL'?'selected':''}>all categories</option>
+    <option value="NONE" ${selected==='NONE'?'selected':''}>no category</option>`;
+  data.categories.forEach(c => { html += `<option value="${c.id}" ${selected===c.id?'selected':''}>${esc(c.name)}</option>`; });
+  return html;
+}
+
+function freqFieldsHtml(item) {
+  let inner = "";
+  if (item.frequency === "monthly") {
+    inner = `<span class="hint">day</span><input type="number" min="1" max="31" class="input-day freq-day1" value="${item.dayOfMonth}" />`;
+  } else if (item.frequency === "semimonthly") {
+    inner = `<span class="hint">days</span><input type="number" min="1" max="31" class="input-day freq-day1" value="${item.daysOfMonth[0]}" />
+    <input type="number" min="1" max="31" class="input-day freq-day2" value="${item.daysOfMonth[1]}" />`;
+  } else {
+    const label = item.frequency === "once" ? "date" : "first date";
+    inner = `<span class="hint">${label}</span><input type="date" class="input-inline freq-anchor" value="${item.anchorDate}" />`;
+  }
+  return `<div class="freq-fields" data-freq-item="${item.id}">${inner}</div>`;
+}
+
+function temporaryFieldsHtml(item) {
+  const needsAnchor = item.frequency === "monthly" || item.frequency === "semimonthly";
+  let inner = `<div class="freq-fields">
+    <span class="hint">if it lands on a weekend/holiday:</span>
+    <select class="freq-select rec-holiday">
+      <option value="none" ${item.businessDayAdjust==='none'?'selected':''}>don't adjust</option>
+      <option value="earlier" ${item.businessDayAdjust==='earlier'?'selected':''}>move earlier</option>
+      <option value="later" ${item.businessDayAdjust==='later'?'selected':''}>move later</option>
+    </select>
+  </div>
+  <label class="checkbox-label" style="margin-top:6px"><input type="checkbox" class="rec-temporary" ${item.temporary?'checked':''}/> temporary / limited run</label>`;
+  if (item.temporary) {
+    inner += `<div class="freq-fields" style="margin-top:6px">`;
+    if (needsAnchor) {
+      inner += `<span class="hint">starts</span><input type="date" class="input-inline rec-anchor" value="${item.anchorDate}" />`;
+    }
+    inner += `<select class="freq-select rec-endmode">
+        <option value="count" ${item.endMode==='count'?'selected':''}>after N charges</option>
+        <option value="date" ${item.endMode==='date'?'selected':''}>until a date</option>
+      </select>`;
+    if (item.endMode === "count") {
+      inner += `<input type="number" min="1" class="input-day rec-occurrencecount" value="${item.occurrenceCount}" /><span class="hint">charges</span>`;
+    } else {
+      inner += `<input type="date" class="input-inline rec-enddate" value="${item.endDate}" />`;
+    }
+    inner += `</div>`;
+  }
+  inner += `<label class="checkbox-label" style="margin-top:6px"><input type="checkbox" class="rec-downpayment-toggle" ${item.downPayment!==null?'checked':''}/> first payment is different (e.g. a down payment)</label>`;
+  if (item.downPayment !== null) {
+    inner += `<div class="freq-fields" style="margin-top:6px">
+      <span class="hint">first payment amount</span>
+      <input type="number" step="0.01" class="input-small rec-downpayment" value="${item.downPayment}" />
+      <span class="hint">— every payment after that uses the regular amount above</span>
+    </div>`;
+  }
+  inner += `<div style="margin-top:10px">
+    <div class="card-title-row" style="margin-bottom:6px">
+      <span class="hint">one-off adjustments — the actual bill different from the estimate, a date that shifted, or one that didn't happen</span>
+      <button class="add-btn rec-add-exception">${svgIcon('plus')} adjust an occurrence</button>
+    </div>`;
+  (item.exceptions || []).forEach((exc, i) => {
+    inner += `<div class="item-row" data-exc-index="${i}" style="padding:6px 0">
+      <span class="hint">expected</span>
+      <input type="date" class="input-inline exc-original" value="${exc.originalDate}" />
+      <select class="freq-select exc-action">
+        <option value="amount" ${exc.action==='amount'?'selected':''}>same date, actual amount</option>
+        <option value="move" ${exc.action==='move'?'selected':''}>moved to a different date</option>
+        <option value="skip" ${exc.action==='skip'?'selected':''}>didn't happen</option>
+      </select>
+      ${exc.action==='move' ? `<input type="date" class="input-inline exc-newdate" value="${exc.newDate||exc.originalDate}" />` : ''}
+      ${exc.action!=='skip' ? `<input type="number" step="0.01" class="input-small exc-newamount" placeholder="amount" value="${exc.newAmount ?? ''}" />` : ''}
+      <button class="delete-btn exc-delete">${svgIcon('trash')}</button>
+    </div>`;
+  });
+  inner += `</div>`;
+  return `<div data-temp-item="${item.id}" style="width:100%">${inner}</div>`;
+}
+
+function reorderButtonsHtml(showReorder, isFirst, isLast, upClass, downClass) {
+  if (!showReorder) return "";
+  return `<div class="day-wrap">
+    ${!isFirst ? `<button class="delete-btn ${upClass}" title="Move up">▲</button>` : `<span style="width:22px;display:inline-block"></span>`}
+    ${!isLast ? `<button class="delete-btn ${downClass}" title="Move down">▼</button>` : `<span style="width:22px;display:inline-block"></span>`}
+  </div>`;
+}
+
+function renderRecurringRow(item, positive, showReorder, isFirst, isLast) {
+  return `<div class="item-row" data-item-id="${item.id}" style="flex-direction:column;align-items:stretch">
+    <div class="item-row" style="border:none;padding:0">
+      ${reorderButtonsHtml(showReorder, isFirst, isLast, 'rec-moveup', 'rec-movedown')}
+      <input class="input-flex rec-name" value="${esc(item.name)}" />
+      <input type="number" step="0.01" class="input-small rec-amount" style="color:${positive?'#4fb477':'#d9636c'}" value="${item.amount}" />
+      <select class="freq-select rec-freq">
+        <option value="monthly" ${item.frequency==='monthly'?'selected':''}>Monthly</option>
+        <option value="semimonthly" ${item.frequency==='semimonthly'?'selected':''}>Twice a month</option>
+        <option value="biweekly" ${item.frequency==='biweekly'?'selected':''}>Every 2 weeks</option>
+        <option value="every30days" ${item.frequency==='every30days'?'selected':''}>Every 30 days</option>
+      </select>
+      ${freqFieldsHtml(item)}
+      <select class="acct-select rec-account">${accountOptions(item.accountId)}</select>
+      <select class="acct-select rec-category">${categoryOptions(item.categoryId)}</select>
+      <button class="delete-btn rec-delete">${svgIcon('trash')}</button>
+    </div>
+    ${temporaryFieldsHtml(item)}
+  </div>`;
+}
+
+function renderOneTimeRow(item, showReorder, isFirst, isLast) {
+  return `<div class="item-row" data-item-id="${item.id}">
+      ${reorderButtonsHtml(showReorder, isFirst, isLast, 'ot-moveup', 'ot-movedown')}
+      <input class="input-flex ot-name" value="${esc(item.name)}" />
+      <select class="type-select ot-type">
+        <option value="expense" ${item.type==='expense'?'selected':''}>Expense</option>
+        <option value="income" ${item.type==='income'?'selected':''}>Income</option>
+      </select>
+      <input type="number" step="0.01" class="input-small ot-amount" style="color:${item.type==='income'?'#4fb477':'#d9636c'}" value="${item.amount}" />
+      <input type="date" class="input-inline ot-date" value="${item.date}" />
+      <select class="acct-select ot-account">${accountOptions(item.accountId)}</select>
+      <select class="acct-select ot-category">${categoryOptions(item.categoryId)}</select>
+      <button class="delete-btn ot-delete">${svgIcon('trash')}</button>
+    </div>`;
+}
+
+function sortFilterControlsHtml(idPrefix, sortVal, categoryVal) {
+  return `<div class="row" style="margin-bottom:8px">
+    <div class="field-wrap">
+      <label class="field-label">sort</label>
+      <select class="acct-select" id="${idPrefix}SortSelect">
+        <option value="custom" ${sortVal==='custom'?'selected':''}>custom order</option>
+        <option value="name" ${sortVal==='name'?'selected':''}>name (A-Z)</option>
+        <option value="amount-desc" ${sortVal==='amount-desc'?'selected':''}>amount (high-low)</option>
+        <option value="amount-asc" ${sortVal==='amount-asc'?'selected':''}>amount (low-high)</option>
+        <option value="category" ${sortVal==='category'?'selected':''}>category</option>
+      </select>
+    </div>
+    <div class="field-wrap">
+      <label class="field-label">filter</label>
+      <select class="acct-select" id="${idPrefix}CategorySelect">${categoryFilterOptionsHtml(categoryVal)}</select>
+    </div>
+  </div>`;
+}
+
+let incomeSortMode = "custom", incomeCategoryFilter = "ALL";
+let oneTimeIncomeSortMode = "custom", oneTimeIncomeCategoryFilter = "ALL";
+
+function renderIncome() {
+  const showReorderInc = incomeSortMode === "custom" && incomeCategoryFilter === "ALL";
+  const showReorderOTI = oneTimeIncomeSortMode === "custom" && oneTimeIncomeCategoryFilter === "ALL";
+  const sortedIncome = sortAndFilterItems(data.income, incomeSortMode, incomeCategoryFilter);
+  const oneTimeIncome = sortAndFilterItems(data.oneTime.filter(t => t.type === "income"), oneTimeIncomeSortMode, oneTimeIncomeCategoryFilter);
+
+  let html = `<div class="stack">`;
+  html += renderCategoryManager();
+  html += `<div class="card">
+    <div class="card-title-row">
+      <div class="card-title">regular income</div>
+      <button class="add-btn" id="addIncomeBtn">${svgIcon('plus')} add</button>
+    </div>
+    ${sortFilterControlsHtml('incomeRec', incomeSortMode, incomeCategoryFilter)}`;
+  if (sortedIncome.length === 0) html += `<div class="hint">No income sources${incomeCategoryFilter!=='ALL'?' in this filter':' yet'}.</div>`;
+  sortedIncome.forEach((inc, i) => { html += renderRecurringRow(inc, true, showReorderInc, i===0, i===sortedIncome.length-1); });
+  html += `</div>
+  <div class="card">
+    <div class="card-title-row">
+      <div class="card-title">one-time income <span class="hint">— a gift, reimbursement, refund, anything expected once</span></div>
+      <button class="add-btn" id="addOneTimeIncomeBtn">${svgIcon('plus')} add</button>
+    </div>
+    ${sortFilterControlsHtml('oneTimeIncome', oneTimeIncomeSortMode, oneTimeIncomeCategoryFilter)}`;
+  if (oneTimeIncome.length === 0) html += `<div class="hint">No one-time income${oneTimeIncomeCategoryFilter!=='ALL'?' in this filter':' yet'}.</div>`;
+  oneTimeIncome.forEach((item, i) => { html += renderOneTimeRow(item, showReorderOTI, i===0, i===oneTimeIncome.length-1); });
+  html += `</div></div>`;
+  return html;
+}
+
+let recurringSortMode = "custom", recurringCategoryFilter = "ALL";
+let oneTimeExpenseSortMode = "custom", oneTimeExpenseCategoryFilter = "ALL";
+
+function renderExpenses() {
+  const showReorderRec = recurringSortMode === "custom" && recurringCategoryFilter === "ALL";
+  const showReorderOTE = oneTimeExpenseSortMode === "custom" && oneTimeExpenseCategoryFilter === "ALL";
+  const sortedRecurring = sortAndFilterItems(data.recurring, recurringSortMode, recurringCategoryFilter);
+  const oneTimeExpenses = sortAndFilterItems(data.oneTime.filter(t => t.type === "expense"), oneTimeExpenseSortMode, oneTimeExpenseCategoryFilter);
+
+  let html = `<div class="stack">`;
+  html += renderCategoryManager();
+  html += `<div class="card">
+    <div class="card-title-row">
+      <div class="card-title">recurring expenses <span class="hint">— due date can drift a bit, that's ok</span></div>
+      <button class="add-btn" id="addRecurringBtn">${svgIcon('plus')} add</button>
+    </div>
+    ${sortFilterControlsHtml('recurringExp', recurringSortMode, recurringCategoryFilter)}`;
+  if (sortedRecurring.length === 0) html += `<div class="hint">No recurring expenses${recurringCategoryFilter!=='ALL'?' in this filter':' yet'}.</div>`;
+  sortedRecurring.forEach((exp, i) => { html += renderRecurringRow(exp, false, showReorderRec, i===0, i===sortedRecurring.length-1); });
+  html += `</div>
+  <div class="card">
+    <div class="card-title-row">
+      <div class="card-title">one-time expenses <span class="hint">— a bill, a purchase, anything happening once</span></div>
+      <button class="add-btn" id="addOneTimeBtn">${svgIcon('plus')} add</button>
+    </div>
+    ${sortFilterControlsHtml('oneTimeExpense', oneTimeExpenseSortMode, oneTimeExpenseCategoryFilter)}`;
+  if (oneTimeExpenses.length === 0) html += `<div class="hint">No one-time expenses${oneTimeExpenseCategoryFilter!=='ALL'?' in this filter':' yet'}.</div>`;
+  oneTimeExpenses.forEach((item, i) => { html += renderOneTimeRow(item, showReorderOTE, i===0, i===oneTimeExpenses.length-1); });
+  html += `</div></div>`;
+  return html;
+}
+
+let historyMode = "monthly";
+let historyScope = "ALL";
+
+function renderTransferRow(item, isFirst, isLast) {
+  const isOnce = item.frequency === "once";
+  const fee = item.fee || 0;
+  return `<div class="item-row" data-item-id="${item.id}" style="flex-direction:column;align-items:stretch">
+    <div class="item-row" style="border:none;padding:0">
+      ${reorderButtonsHtml(true, isFirst, isLast, 'tr-moveup', 'tr-movedown')}
+      <input class="input-flex tr-name" value="${esc(item.name)}" />
+      <div class="day-wrap"><span class="hint">sends</span><input type="number" step="0.01" class="input-small tr-amount" value="${item.amount}" /></div>
+      <div class="day-wrap"><span class="hint">fee</span><input type="number" step="0.01" min="0" class="input-day tr-fee" style="width:64px" value="${fee}" /></div>
+      <select class="freq-select tr-freq">
+        <option value="once" ${isOnce?'selected':''}>One time</option>
+        <option value="monthly" ${item.frequency==='monthly'?'selected':''}>Monthly</option>
+        <option value="semimonthly" ${item.frequency==='semimonthly'?'selected':''}>Twice a month</option>
+        <option value="biweekly" ${item.frequency==='biweekly'?'selected':''}>Every 2 weeks</option>
+        <option value="every30days" ${item.frequency==='every30days'?'selected':''}>Every 30 days</option>
+      </select>
+      ${freqFieldsHtml(item)}
+      <span class="hint">from</span>
+      <select class="acct-select tr-from">${accountOptions(item.fromAccountId)}</select>
+      <span class="hint">to</span>
+      <select class="acct-select tr-to">${accountOptions(item.toAccountId)}</select>
+      <button class="delete-btn tr-delete">${svgIcon('trash')}</button>
+    </div>
+    ${fee > 0 ? `<div class="hint">arrives as ${money(Math.max(0, item.amount - fee))} after the fee</div>` : ''}
+    ${isOnce ? '' : temporaryFieldsHtml(item)}
+  </div>`;
+}
+
+function renderTransfers() {
+  let html = `<div class="stack"><div class="card">
+    <div class="card-title-row">
+      <div class="card-title">transfers between your accounts <span class="hint">— moving your own money, not income or spending</span></div>
+      <button class="add-btn" id="addTransferBtn">${svgIcon('plus')} add</button>
+    </div>`;
+  if (data.transfers.length === 0) html += `<div class="hint">No transfers set up yet.</div>`;
+  data.transfers.forEach((tr, i) => { html += renderTransferRow(tr, i===0, i===data.transfers.length-1); });
+  html += `<div class="hint">Transfers move money between your own accounts — they don't count toward income, expenses, or your monthly net, but they do show up in each account's balance and history.</div>
+  </div></div>`;
+  return html;
+}
+
+function computeHistoryRows(mode, scope, categoryFilter) {
+  const start = new Date(data.startingDate);
+  const out = [];
+  const accId = scope === "ALL" ? null : scope;
+  const isTransfer = (e) => e.kind === "transfer in" || e.kind === "transfer out";
+  const catOk = (e) => !categoryFilter || categoryFilter === "ALL" || (categoryFilter === "NONE" ? !e.categoryId : e.categoryId === categoryFilter);
+  if (mode === "monthly") {
+    let bal = balanceAt(start, accId);
+    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    for (let i = 0; i < 12; i++) {
+      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0);
+      const allEvents = buildEvents(i===0?start:cursor, monthEnd).filter(e => !accId || e.accountId === accId);
+      const events = allEvents.filter(catOk);
+      const income = events.filter(e=>e.amount>0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const expense = events.filter(e=>e.amount<0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const transfers = events.filter(isTransfer).reduce((s,e)=>s+e.amount,0);
+      // balance always reflects the true (unfiltered) running total; category filter only narrows what's displayed
+      const allIncome = allEvents.filter(e=>e.amount>0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const allExpense = allEvents.filter(e=>e.amount<0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const allTransfers = allEvents.filter(isTransfer).reduce((s,e)=>s+e.amount,0);
+      bal += allIncome + allExpense + allTransfers;
+      out.push({ label: cursor.toLocaleString(undefined,{month:"long",year:"numeric"}), income, expense, transfers, end: bal, events: events.slice().sort((a,b)=>a.date-b.date) });
+      cursor.setMonth(cursor.getMonth()+1);
+    }
+  } else {
+    let bal = balanceAt(start, accId);
+    let cursor = new Date(start.getFullYear(), 0, 1);
+    for (let i = 0; i < 5; i++) {
+      const yearEnd = new Date(cursor.getFullYear(), 11, 31);
+      const allEvents = buildEvents(i===0?start:cursor, yearEnd).filter(e => !accId || e.accountId === accId);
+      const events = allEvents.filter(catOk);
+      const income = events.filter(e=>e.amount>0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const expense = events.filter(e=>e.amount<0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const transfers = events.filter(isTransfer).reduce((s,e)=>s+e.amount,0);
+      const allIncome = allEvents.filter(e=>e.amount>0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const allExpense = allEvents.filter(e=>e.amount<0 && !isTransfer(e)).reduce((s,e)=>s+e.amount,0);
+      const allTransfers = allEvents.filter(isTransfer).reduce((s,e)=>s+e.amount,0);
+      bal += allIncome + allExpense + allTransfers;
+      out.push({ label: String(cursor.getFullYear()), income, expense, transfers, end: bal, events: events.slice().sort((a,b)=>a.date-b.date) });
+      cursor.setFullYear(cursor.getFullYear()+1);
+    }
+  }
+  return out;
+}
+
+let historyExpandedIndex = null;
+let historyCategoryFilter = "ALL";
+
+function csvEscape(val) {
+  const s = String(val ?? "");
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map(row => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportHistorySummaryCSV() {
+  const rows = computeHistoryRows(historyMode, historyScope, historyCategoryFilter);
+  const scopeLabel = historyScope === "ALL" ? "all accounts" : (data.accounts.find(a=>a.id===historyScope)?.name || historyScope);
+  const catLabel = historyCategoryFilter === "ALL" ? "all categories" : (historyCategoryFilter === "NONE" ? "no category" : (data.categories.find(c=>c.id===historyCategoryFilter)?.name || historyCategoryFilter));
+  const header = [[historyMode === "monthly" ? "Month" : "Year", "Income", "Expenses", "Transfers", "End Balance"]];
+  const body = rows.map(r => [r.label, r.income.toFixed(2), r.expense.toFixed(2), r.transfers.toFixed(2), r.end.toFixed(2)]);
+  downloadCSV(`my-monies-summary-${historyMode}-${scopeLabel}-${catLabel}-${todayISO()}.csv`.replace(/\s+/g, "_"), [...header, ...body]);
+}
+
+function exportHistoryTransactionsCSV() {
+  const rows = computeHistoryRows(historyMode, historyScope, historyCategoryFilter);
+  const scopeLabel = historyScope === "ALL" ? "all accounts" : (data.accounts.find(a=>a.id===historyScope)?.name || historyScope);
+  const catLabel = historyCategoryFilter === "ALL" ? "all categories" : (historyCategoryFilter === "NONE" ? "no category" : (data.categories.find(c=>c.id===historyCategoryFilter)?.name || historyCategoryFilter));
+  const categoryName = (id) => id ? (data.categories.find(c=>c.id===id)?.name || "") : "";
+  const header = [["Date", "Description", "Account", "Category", "Type", "Amount"]];
+  const body = [];
+  rows.forEach(r => {
+    r.events.forEach(e => {
+      body.push([e.date.toISOString().slice(0,10), e.label, e.accountName, categoryName(e.categoryId), e.kind, e.amount.toFixed(2)]);
+    });
+  });
+  downloadCSV(`my-monies-transactions-${historyMode}-${scopeLabel}-${catLabel}-${todayISO()}.csv`.replace(/\s+/g, "_"), [...header, ...body]);
+}
+
+function renderHistory() {
+  const rows = computeHistoryRows(historyMode, historyScope, historyCategoryFilter);
+  let html = `<div class="stack">
+    <div class="row">
+      <div class="toggle-row">
+        <button class="toggle-btn ${historyMode==='monthly'?'active':''}" id="modeMonthlyBtn">monthly</button>
+        <button class="toggle-btn ${historyMode==='yearly'?'active':''}" id="modeYearlyBtn">yearly</button>
+      </div>
+      <select class="acct-select" id="historyScopeSelect">
+        <option value="ALL" ${historyScope==='ALL'?'selected':''}>all accounts (combined)</option>
+        ${data.accounts.map(a=>`<option value="${a.id}" ${historyScope===a.id?'selected':''}>${esc(a.name)}</option>`).join("")}
+      </select>
+      <select class="acct-select" id="historyCategorySelect">${categoryFilterOptionsHtml(historyCategoryFilter)}</select>
+    </div>
+    <div class="card">
+      <div class="history-header">
+        <div class="hist-name">${historyMode==='monthly'?'month':'year'}</div>
+        <div class="hist-col">income</div>
+        <div class="hist-col">expenses</div>
+        <div class="hist-col">transfers</div>
+        <div class="hist-col">end balance</div>
+      </div>`;
+  rows.forEach((r, i) => {
+    const expanded = historyExpandedIndex === i;
+    html += `<div class="history-row" data-hist-index="${i}" style="cursor:pointer">
+      <div class="hist-name">${expanded ? '▾ ' : '▸ '}${esc(r.label)}</div>
+      <div class="hist-col" style="color:#4fb477">${money(r.income)}</div>
+      <div class="hist-col" style="color:#d9636c">${money(r.expense)}</div>
+      <div class="hist-col" style="color:#8b94a3">${r.transfers === 0 ? '—' : money(r.transfers)}</div>
+      <div class="hist-col" style="font-weight:700;color:${r.end>=0?'#e6e8eb':'#d9636c'}">${money(r.end)}</div>
+    </div>`;
+    if (expanded) {
+      if (r.events.length === 0) {
+        html += `<div class="hint" style="padding:8px 0 12px">No transactions in this period${historyCategoryFilter!=='ALL'?' matching this filter':''}.</div>`;
+      } else {
+        html += `<div style="padding:4px 0 12px">`;
+        r.events.forEach(e => {
+          const isIncome = e.amount > 0;
+          const catName = e.categoryId ? (data.categories.find(c=>c.id===e.categoryId)?.name || "") : "";
+          html += `<div class="upcoming-row">
+            <div>
+              <div class="upcoming-label">${esc(e.label)}</div>
+              <div class="upcoming-meta">${esc(e.accountName)}${catName?` · ${esc(catName)}`:''} · ${e.date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</div>
+            </div>
+            <div class="upcoming-amt" style="color:${isIncome?'#4fb477':'#d9636c'}">${money(e.amount)}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+    }
+  });
+  html += `<div class="hint">Projections assume recurring items continue unchanged and no new one-time transactions are added. The end balance always reflects your true total — the category filter only narrows what's displayed above it, and transfers aren't tied to a category.</div></div>
+  <div class="card">
+    <div class="card-title">export</div>
+    <div class="backup-row">
+      <button class="backup-btn" id="exportSummaryCsvBtn">Export summary (CSV)</button>
+      <button class="backup-btn" id="exportTransactionsCsvBtn">Export all transactions (CSV)</button>
+    </div>
+    <div class="hint">Both respect the ${historyMode} view, account, and category filter currently selected above. CSV files open directly in Excel, Numbers, or Google Sheets. Set filters to "all accounts" and "all categories" first for a full, unfiltered export.</div>
+  </div>
+  </div>`;
+  return html;
+}
+
+// ---------------- What if ----------------
+let whatIfScope = "ALL";
+let calcAmount = 0;
+let calcIncludeScenario = true;
+
+function renderWhatIf() {
+  const in365 = new Date(); in365.setDate(in365.getDate() + 365);
+  const accId = whatIfScope === "ALL" ? null : whatIfScope;
+  const extra = scenarioEvents(accId);
+
+  // overdraft check, baseline vs with-scenario, per relevant account(s)
+  const relevantAccounts = accId ? data.accounts.filter(a=>a.id===accId) : data.accounts;
+  let overdraftHtml = "";
+  relevantAccounts.forEach(a => {
+    const baseline = projectAccountTimeline(a, [], in365);
+    const withScenario = projectAccountTimeline(a, scenarioEvents(a.id), in365);
+    if (withScenario.firstNegative) {
+      const causedByScenario = !baseline.firstNegative || withScenario.firstNegative.date < baseline.firstNegative.date;
+      overdraftHtml += `<div class="warn-box">
+        <strong>${esc(a.name)}</strong> is projected to dip to ${money(withScenario.firstNegative.balance)} around ${fmtDate(withScenario.firstNegative.date)}
+        ${causedByScenario ? " — this shortfall comes from the scenario items below." : " — this shortfall exists even without the scenario items."}
+      </div>`;
+    } else {
+      overdraftHtml += `<div class="ok-box"><strong>${esc(a.name)}</strong>: no shortfall projected in the next 12 months, including the scenario items below.</div>`;
+    }
+  });
+
+  // earliest affordable date
+  let dateResultHtml = "";
+  if (calcAmount > 0) {
+    const earliest = findEarliestAffordableDate(calcAmount, accId, calcIncludeScenario);
+    if (earliest) {
+      const daysOut = daysUntil(earliest.toISOString().slice(0,10));
+      dateResultHtml = `<div class="ok-box">You could cover ${money(calcAmount)} by <strong>${fmtDate(earliest)}</strong> (${daysOut<=0?'today':`in about ${daysOut} day${daysOut===1?'':'s'}`}), based on scheduled income and expenses${calcIncludeScenario?' plus your scenario items':''}.</div>`;
+    } else {
+      dateResultHtml = `<div class="warn-box">Not projected to be affordable within the next 2 years at the current pace.</div>`;
+    }
+  }
+
+  let html = `<div class="stack">
+
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title">${svgIcon('layers')} scenario — things that might happen</div>
+        <button class="add-btn" id="addScenarioBtn">${svgIcon('plus')} add</button>
+      </div>
+      <div class="hint" style="margin-bottom:8px">Add hypothetical income or expenses you're not ready to commit to your real plan yet — a friend paying you back, a possible bill, anything you want to test the impact of.</div>`;
+  if (data.scenario.length === 0) html += `<div class="hint">Nothing here yet.</div>`;
+  data.scenario.forEach((s, i) => {
+    html += `<div class="item-row" data-item-id="${s.id}">
+      ${reorderButtonsHtml(true, i===0, i===data.scenario.length-1, 'sc-moveup', 'sc-movedown')}
+      <input class="input-flex sc-name" value="${esc(s.name)}" />
+      <select class="type-select sc-type">
+        <option value="expense" ${s.type==='expense'?'selected':''}>Expense</option>
+        <option value="income" ${s.type==='income'?'selected':''}>Income</option>
+      </select>
+      <input type="number" step="0.01" class="input-small sc-amount" style="color:${s.type==='income'?'#4fb477':'#d9636c'}" value="${s.amount}" />
+      <input type="date" class="input-inline sc-date" value="${s.date}" />
+      <select class="acct-select sc-account">${accountOptions(s.accountId)}</select>
+      <button class="delete-btn sc-delete">${svgIcon('trash')}</button>
+    </div>`;
+  });
+  html += `</div>
+
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title">${svgIcon('warn','#e0a458')} overdraft check, next 12 months</div>
+        <select class="acct-select" id="whatIfScopeSelect">
+          <option value="ALL" ${whatIfScope==='ALL'?'selected':''}>all accounts</option>
+          ${data.accounts.map(a=>`<option value="${a.id}" ${whatIfScope===a.id?'selected':''}>${esc(a.name)}</option>`).join("")}
+        </select>
+      </div>
+      ${overdraftHtml}
+    </div>
+
+    <div class="card">
+      <div class="card-title">${svgIcon('compass')} when could I afford something?</div>
+      <div class="row">
+        <div class="field-wrap"><label class="field-label">amount</label><input type="number" step="0.01" id="calcAmountInput" class="input-inline" value="${calcAmount}" /></div>
+        <label class="checkbox-label"><input type="checkbox" id="calcIncludeScenarioCheck" ${calcIncludeScenario?'checked':''}/> include scenario items above</label>
+      </div>
+      <div class="hint">Scope: ${whatIfScope==='ALL' ? 'all accounts combined' : esc(data.accounts.find(a=>a.id===whatIfScope)?.name || '')} (change scope above)</div>
+      ${dateResultHtml}
+    </div>
+  </div>`;
+  return html;
+}
+
+// ================= event handlers =================
+function attachHandlers() {
+  if (tab === "Dashboard") {
+    document.getElementById("startingDateInput").onchange = e => { data.startingDate = e.target.value; saveData(); render(); };
+  }
+
+  if (tab === "Accounts") {
+    document.getElementById("addAccountBtn").onclick = () => { data.accounts.push({ id: uid(), name: "New account", balance: 0, type: "asset", interestRate: 0, interestDay: 1 }); saveData(); render(); };
+    document.querySelectorAll('[data-account-id]').forEach(row => {
+      const id = row.getAttribute('data-account-id');
+      row.querySelector('.acct-name').onchange = e => { data.accounts.find(a=>a.id===id).name = e.target.value; saveData(); render(); };
+      row.querySelector('.acct-balance').onchange = e => {
+        const acc = data.accounts.find(a=>a.id===id);
+        const v = parseFloat(e.target.value) || 0;
+        acc.balance = acc.type === "credit" ? -Math.abs(v) : v;
+        saveData(); render();
+      };
+      row.querySelector('.acct-type').onchange = e => {
+        const acc = data.accounts.find(a=>a.id===id);
+        const wasCredit = acc.type === "credit";
+        const willBeCredit = e.target.value === "credit";
+        acc.type = e.target.value;
+        if (wasCredit !== willBeCredit) acc.balance = -acc.balance; // flip sign so the magnitude carries over sensibly
+        saveData(); render();
+      };
+      row.querySelector('.acct-rate').onchange = e => { data.accounts.find(a=>a.id===id).interestRate = parseFloat(e.target.value) || 0; saveData(); render(); };
+      const rateDay = row.querySelector('.acct-interestday');
+      if (rateDay) rateDay.onchange = e => { data.accounts.find(a=>a.id===id).interestDay = Math.min(28, Math.max(1, parseInt(e.target.value) || 1)); saveData(); render(); };
+      const upBtn = row.querySelector('.acct-moveup');
+      if (upBtn) upBtn.onclick = () => { moveItem(data.accounts, data.accounts.findIndex(a=>a.id===id), -1); saveData(); render(); };
+      const downBtn = row.querySelector('.acct-movedown');
+      if (downBtn) downBtn.onclick = () => { moveItem(data.accounts, data.accounts.findIndex(a=>a.id===id), 1); saveData(); render(); };
+      const delBtn = row.querySelector('.acct-delete');
+      if (delBtn) delBtn.onclick = () => {
+        data.accounts = data.accounts.filter(a=>a.id!==id);
+        const fallback = data.accounts[0]?.id;
+        data.income.forEach(i => { if (i.accountId === id) i.accountId = fallback; });
+        data.recurring.forEach(r => { if (r.accountId === id) r.accountId = fallback; });
+        data.oneTime.forEach(o => { if (o.accountId === id) o.accountId = fallback; });
+        data.scenario.forEach(s => { if (s.accountId === id) s.accountId = fallback; });
+        data.transfers.forEach(t => {
+          if (t.fromAccountId === id) t.fromAccountId = fallback;
+          if (t.toAccountId === id) t.toAccountId = fallback;
+        });
+        saveData(); render();
+      };
+    });
+    document.getElementById("exportBtn").onclick = () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `my-monies-backup-${todayISO()}.json`; a.click();
+      URL.revokeObjectURL(url);
+    };
+    document.getElementById("exportEncryptedBtn").onclick = async () => {
+      const password = prompt("Set a password to protect this backup. You'll need this exact password again to import it — there's no way to recover it if you forget.");
+      if (!password) return;
+      const confirmPassword = prompt("Confirm the password:");
+      if (confirmPassword !== password) { alert("Those didn't match — nothing was exported. Try again."); return; }
+      try {
+        const encObj = await encryptBackup(data, password);
+        const blob = new Blob([JSON.stringify(encObj)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `my-monies-backup-encrypted-${todayISO()}.json`; a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("Encryption failed: " + err.message);
+      }
+    };
+    document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
+  }
+
+  if (tab === "Income") {
+    document.getElementById("addIncomeBtn").onclick = () => { data.income.push(freshRecurringItem(data.accounts[0]?.id || "")); saveData(); render(); };
+    document.getElementById("addOneTimeIncomeBtn").onclick = () => { data.oneTime.push({ id: uid(), name: "New income", type: "income", amount: 0, date: todayISO(), accountId: data.accounts[0]?.id || "", businessDayAdjust: "none", categoryId: null }); saveData(); render(); };
+    attachCategoryManagerHandlers();
+    attachRecurringRowHandlers("income");
+    attachOneTimeRowHandlers();
+    const incSort = document.getElementById("incomeRecSortSelect");
+    if (incSort) incSort.onchange = e => { incomeSortMode = e.target.value; render(); };
+    const incCat = document.getElementById("incomeRecCategorySelect");
+    if (incCat) incCat.onchange = e => { incomeCategoryFilter = e.target.value; render(); };
+    const otiSort = document.getElementById("oneTimeIncomeSortSelect");
+    if (otiSort) otiSort.onchange = e => { oneTimeIncomeSortMode = e.target.value; render(); };
+    const otiCat = document.getElementById("oneTimeIncomeCategorySelect");
+    if (otiCat) otiCat.onchange = e => { oneTimeIncomeCategoryFilter = e.target.value; render(); };
+  }
+
+  if (tab === "Expenses") {
+    document.getElementById("addRecurringBtn").onclick = () => { data.recurring.push(freshRecurringItem(data.accounts[0]?.id || "")); saveData(); render(); };
+    document.getElementById("addOneTimeBtn").onclick = () => { data.oneTime.push({ id: uid(), name: "New transaction", type: "expense", amount: 0, date: todayISO(), accountId: data.accounts[0]?.id || "", businessDayAdjust: "none", categoryId: null }); saveData(); render(); };
+    attachCategoryManagerHandlers();
+    attachRecurringRowHandlers("recurring");
+    attachOneTimeRowHandlers();
+    const recSort = document.getElementById("recurringExpSortSelect");
+    if (recSort) recSort.onchange = e => { recurringSortMode = e.target.value; render(); };
+    const recCat = document.getElementById("recurringExpCategorySelect");
+    if (recCat) recCat.onchange = e => { recurringCategoryFilter = e.target.value; render(); };
+    const oteSort = document.getElementById("oneTimeExpenseSortSelect");
+    if (oteSort) oteSort.onchange = e => { oneTimeExpenseSortMode = e.target.value; render(); };
+    const oteCat = document.getElementById("oneTimeExpenseCategorySelect");
+    if (oteCat) oteCat.onchange = e => { oneTimeExpenseCategoryFilter = e.target.value; render(); };
+  }
+
+  if (tab === "Transfers") {
+    document.getElementById("addTransferBtn").onclick = () => {
+      const fromId = data.accounts[0]?.id || "";
+      const toId = data.accounts[1]?.id || data.accounts[0]?.id || "";
+      data.transfers.push(freshTransferItem(fromId, toId));
+      saveData(); render();
+    };
+    attachTransferRowHandlers();
+  }
+
+  if (tab === "History") {
+    document.getElementById("modeMonthlyBtn").onclick = () => { historyMode = "monthly"; historyExpandedIndex = null; render(); };
+    document.getElementById("modeYearlyBtn").onclick = () => { historyMode = "yearly"; historyExpandedIndex = null; render(); };
+    document.getElementById("historyScopeSelect").onchange = e => { historyScope = e.target.value; historyExpandedIndex = null; render(); };
+    document.getElementById("historyCategorySelect").onchange = e => { historyCategoryFilter = e.target.value; historyExpandedIndex = null; render(); };
+    document.getElementById("exportSummaryCsvBtn").onclick = () => exportHistorySummaryCSV();
+    document.getElementById("exportTransactionsCsvBtn").onclick = () => exportHistoryTransactionsCSV();
+    document.querySelectorAll('[data-hist-index]').forEach(row => {
+      row.onclick = () => {
+        const idx = parseInt(row.getAttribute('data-hist-index'));
+        historyExpandedIndex = historyExpandedIndex === idx ? null : idx;
+        render();
+      };
+    });
+  }
+
+  if (tab === "What if") {
+    document.getElementById("addScenarioBtn").onclick = () => {
+      data.scenario.push({ id: uid(), name: "New scenario item", type: "expense", amount: 0, date: todayISO(), accountId: data.accounts[0]?.id || "" });
+      saveData(); render();
+    };
+    document.querySelectorAll('#tabContent .item-row[data-item-id]').forEach(row => {
+      const id = row.getAttribute('data-item-id');
+      const item = data.scenario.find(x=>x.id===id);
+      if (!item) return;
+      row.querySelector('.sc-name').onchange = e => { item.name = e.target.value; saveData(); render(); };
+      row.querySelector('.sc-type').onchange = e => { item.type = e.target.value; saveData(); render(); };
+      row.querySelector('.sc-amount').onchange = e => { item.amount = parseFloat(e.target.value) || 0; saveData(); render(); };
+      row.querySelector('.sc-date').onchange = e => { item.date = e.target.value; saveData(); render(); };
+      row.querySelector('.sc-account').onchange = e => { item.accountId = e.target.value; saveData(); render(); };
+      row.querySelector('.sc-delete').onclick = () => { data.scenario = data.scenario.filter(x=>x.id!==id); saveData(); render(); };
+      const upBtn = row.querySelector('.sc-moveup');
+      if (upBtn) upBtn.onclick = () => { moveItem(data.scenario, data.scenario.findIndex(x=>x.id===id), -1); saveData(); render(); };
+      const downBtn = row.querySelector('.sc-movedown');
+      if (downBtn) downBtn.onclick = () => { moveItem(data.scenario, data.scenario.findIndex(x=>x.id===id), 1); saveData(); render(); };
+    });
+    document.getElementById("whatIfScopeSelect").onchange = e => { whatIfScope = e.target.value; render(); };
+    document.getElementById("calcAmountInput").oninput = e => { calcAmount = parseFloat(e.target.value) || 0; render(); };
+    document.getElementById("calcIncludeScenarioCheck").onchange = e => { calcIncludeScenario = e.target.checked; render(); };
+  }
+}
+
+function moveOneTimeItem(id, direction) {
+  const item = data.oneTime.find(x => x.id === id);
+  if (!item) return;
+  const sameType = data.oneTime.filter(x => x.type === item.type);
+  const idxInSameType = sameType.indexOf(item);
+  const targetIdxInSameType = idxInSameType + direction;
+  if (targetIdxInSameType < 0 || targetIdxInSameType >= sameType.length) return;
+  const targetItem = sameType[targetIdxInSameType];
+  const fullIdxA = data.oneTime.indexOf(item);
+  const fullIdxB = data.oneTime.indexOf(targetItem);
+  const tmp = data.oneTime[fullIdxA];
+  data.oneTime[fullIdxA] = data.oneTime[fullIdxB];
+  data.oneTime[fullIdxB] = tmp;
+}
+
+function attachOneTimeRowHandlers() {
+  document.querySelectorAll('#tabContent .item-row[data-item-id]').forEach(row => {
+    const id = row.getAttribute('data-item-id');
+    const item = data.oneTime.find(x => x.id === id);
+    if (!item) return;
+    row.querySelector('.ot-name').onchange = e => { item.name = e.target.value; saveData(); render(); };
+    row.querySelector('.ot-type').onchange = e => { item.type = e.target.value; saveData(); render(); };
+    row.querySelector('.ot-amount').onchange = e => { item.amount = parseFloat(e.target.value) || 0; saveData(); render(); };
+    row.querySelector('.ot-date').onchange = e => { item.date = e.target.value; saveData(); render(); };
+    row.querySelector('.ot-account').onchange = e => { item.accountId = e.target.value; saveData(); render(); };
+    const catSel = row.querySelector('.ot-category');
+    if (catSel) catSel.onchange = e => { item.categoryId = e.target.value || null; saveData(); render(); };
+    row.querySelector('.ot-delete').onclick = () => { data.oneTime = data.oneTime.filter(x => x.id !== id); saveData(); render(); };
+    const upBtn = row.querySelector('.ot-moveup');
+    if (upBtn) upBtn.onclick = () => { moveOneTimeItem(id, -1); saveData(); render(); };
+    const downBtn = row.querySelector('.ot-movedown');
+    if (downBtn) downBtn.onclick = () => { moveOneTimeItem(id, 1); saveData(); render(); };
+  });
+}
+
+function attachTransferRowHandlers() {
+  document.querySelectorAll('#tabContent .item-row[data-item-id]').forEach(row => {
+    const id = row.getAttribute('data-item-id');
+    const item = data.transfers.find(x => x.id === id);
+    if (!item) return;
+    row.querySelector('.tr-name').onchange = e => { item.name = e.target.value; saveData(); render(); };
+    row.querySelector('.tr-amount').onchange = e => { item.amount = parseFloat(e.target.value) || 0; saveData(); render(); };
+    row.querySelector('.tr-fee').onchange = e => { item.fee = Math.max(0, parseFloat(e.target.value) || 0); saveData(); render(); };
+    row.querySelector('.tr-freq').onchange = e => { item.frequency = e.target.value; saveData(); render(); };
+    row.querySelector('.tr-from').onchange = e => { item.fromAccountId = e.target.value; saveData(); render(); };
+    row.querySelector('.tr-to').onchange = e => { item.toAccountId = e.target.value; saveData(); render(); };
+    row.querySelector('.tr-delete').onclick = () => { data.transfers = data.transfers.filter(x => x.id !== id); saveData(); render(); };
+    const upBtn = row.querySelector('.tr-moveup');
+    if (upBtn) upBtn.onclick = () => { moveItem(data.transfers, data.transfers.findIndex(x=>x.id===id), -1); saveData(); render(); };
+    const downBtn = row.querySelector('.tr-movedown');
+    if (downBtn) downBtn.onclick = () => { moveItem(data.transfers, data.transfers.findIndex(x=>x.id===id), 1); saveData(); render(); };
+
+    const day1 = row.querySelector('.freq-day1');
+    if (day1) day1.onchange = e => {
+      const v = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
+      if (item.frequency === "semimonthly") item.daysOfMonth[0] = v; else item.dayOfMonth = v;
+      saveData(); render();
+    };
+    const day2 = row.querySelector('.freq-day2');
+    if (day2) day2.onchange = e => { item.daysOfMonth[1] = Math.min(31, Math.max(1, parseInt(e.target.value) || 1)); saveData(); render(); };
+    const anchor = row.querySelector('.freq-anchor');
+    if (anchor) anchor.onchange = e => { item.anchorDate = e.target.value; saveData(); render(); };
+
+    const holidaySel = row.querySelector('.rec-holiday');
+    if (holidaySel) holidaySel.onchange = e => { item.businessDayAdjust = e.target.value; saveData(); render(); };
+    const dpToggle = row.querySelector('.rec-downpayment-toggle');
+    if (dpToggle) dpToggle.onchange = e => { item.downPayment = e.target.checked ? (item.amount || 0) : null; saveData(); render(); };
+    const dpInput = row.querySelector('.rec-downpayment');
+    if (dpInput) dpInput.onchange = e => { item.downPayment = parseFloat(e.target.value) || 0; saveData(); render(); };
+    const tempCheck = row.querySelector('.rec-temporary');
+    if (tempCheck) tempCheck.onchange = e => { item.temporary = e.target.checked; saveData(); render(); };
+    const tempAnchor = row.querySelector('.rec-anchor');
+    if (tempAnchor) tempAnchor.onchange = e => { item.anchorDate = e.target.value; saveData(); render(); };
+    const endMode = row.querySelector('.rec-endmode');
+    if (endMode) endMode.onchange = e => { item.endMode = e.target.value; saveData(); render(); };
+    const occCount = row.querySelector('.rec-occurrencecount');
+    if (occCount) occCount.onchange = e => { item.occurrenceCount = Math.max(1, parseInt(e.target.value) || 1); saveData(); render(); };
+    const endDate = row.querySelector('.rec-enddate');
+    if (endDate) endDate.onchange = e => { item.endDate = e.target.value; saveData(); render(); };
+
+    const addExcBtn = row.querySelector('.rec-add-exception');
+    if (addExcBtn) addExcBtn.onclick = () => {
+      if (!item.exceptions) item.exceptions = [];
+      item.exceptions.push({ originalDate: todayISO(), action: "amount", newDate: todayISO(), newAmount: null });
+      saveData(); render();
+    };
+    row.querySelectorAll('[data-exc-index]').forEach(excRow => {
+      const idx = parseInt(excRow.getAttribute('data-exc-index'));
+      const exc = item.exceptions[idx];
+      if (!exc) return;
+      excRow.querySelector('.exc-original').onchange = e => { exc.originalDate = e.target.value; saveData(); render(); };
+      excRow.querySelector('.exc-action').onchange = e => { exc.action = e.target.value; saveData(); render(); };
+      const nd = excRow.querySelector('.exc-newdate');
+      if (nd) nd.onchange = e => { exc.newDate = e.target.value; saveData(); render(); };
+      const na = excRow.querySelector('.exc-newamount');
+      if (na) na.onchange = e => { exc.newAmount = e.target.value === '' ? null : parseFloat(e.target.value); saveData(); render(); };
+      excRow.querySelector('.exc-delete').onclick = () => { item.exceptions.splice(idx, 1); saveData(); render(); };
+    });
+  });
+}
+
+function attachRecurringRowHandlers(listName) {
+  document.querySelectorAll('#tabContent .item-row[data-item-id]').forEach(row => {
+    const id = row.getAttribute('data-item-id');
+    const item = data[listName].find(x=>x.id===id);
+    if (!item) return;
+    row.querySelector('.rec-name').onchange = e => { item.name = e.target.value; saveData(); render(); };
+    row.querySelector('.rec-amount').onchange = e => { item.amount = parseFloat(e.target.value) || 0; saveData(); render(); };
+    row.querySelector('.rec-freq').onchange = e => { item.frequency = e.target.value; saveData(); render(); };
+    row.querySelector('.rec-account').onchange = e => { item.accountId = e.target.value; saveData(); render(); };
+    const catSel = row.querySelector('.rec-category');
+    if (catSel) catSel.onchange = e => { item.categoryId = e.target.value || null; saveData(); render(); };
+    row.querySelector('.rec-delete').onclick = () => { data[listName] = data[listName].filter(x=>x.id!==id); saveData(); render(); };
+    const upBtn = row.querySelector('.rec-moveup');
+    if (upBtn) upBtn.onclick = () => { moveItem(data[listName], data[listName].findIndex(x=>x.id===id), -1); saveData(); render(); };
+    const downBtn = row.querySelector('.rec-movedown');
+    if (downBtn) downBtn.onclick = () => { moveItem(data[listName], data[listName].findIndex(x=>x.id===id), 1); saveData(); render(); };
+    const day1 = row.querySelector('.freq-day1');
+    if (day1) day1.onchange = e => {
+      const v = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
+      if (item.frequency === "semimonthly") item.daysOfMonth[0] = v; else item.dayOfMonth = v;
+      saveData(); render();
+    };
+    const day2 = row.querySelector('.freq-day2');
+    if (day2) day2.onchange = e => { item.daysOfMonth[1] = Math.min(31, Math.max(1, parseInt(e.target.value) || 1)); saveData(); render(); };
+    const anchor = row.querySelector('.freq-anchor');
+    if (anchor) anchor.onchange = e => { item.anchorDate = e.target.value; saveData(); render(); };
+
+    const tempCheck = row.querySelector('.rec-temporary');
+    if (tempCheck) tempCheck.onchange = e => { item.temporary = e.target.checked; saveData(); render(); };
+    const tempAnchor = row.querySelector('.rec-anchor');
+    if (tempAnchor) tempAnchor.onchange = e => { item.anchorDate = e.target.value; saveData(); render(); };
+    const endMode = row.querySelector('.rec-endmode');
+    if (endMode) endMode.onchange = e => { item.endMode = e.target.value; saveData(); render(); };
+    const occCount = row.querySelector('.rec-occurrencecount');
+    if (occCount) occCount.onchange = e => { item.occurrenceCount = Math.max(1, parseInt(e.target.value) || 1); saveData(); render(); };
+    const endDate = row.querySelector('.rec-enddate');
+    if (endDate) endDate.onchange = e => { item.endDate = e.target.value; saveData(); render(); };
+
+    const holidaySel = row.querySelector('.rec-holiday');
+    if (holidaySel) holidaySel.onchange = e => { item.businessDayAdjust = e.target.value; saveData(); render(); };
+    const dpToggle = row.querySelector('.rec-downpayment-toggle');
+    if (dpToggle) dpToggle.onchange = e => { item.downPayment = e.target.checked ? (item.amount || 0) : null; saveData(); render(); };
+    const dpInput = row.querySelector('.rec-downpayment');
+    if (dpInput) dpInput.onchange = e => { item.downPayment = parseFloat(e.target.value) || 0; saveData(); render(); };
+
+    const addExcBtn = row.querySelector('.rec-add-exception');
+    if (addExcBtn) addExcBtn.onclick = () => {
+      if (!item.exceptions) item.exceptions = [];
+      item.exceptions.push({ originalDate: todayISO(), action: "amount", newDate: todayISO(), newAmount: null });
+      saveData(); render();
+    };
+    row.querySelectorAll('[data-exc-index]').forEach(excRow => {
+      const idx = parseInt(excRow.getAttribute('data-exc-index'));
+      const exc = item.exceptions[idx];
+      if (!exc) return;
+      excRow.querySelector('.exc-original').onchange = e => { exc.originalDate = e.target.value; saveData(); render(); };
+      excRow.querySelector('.exc-action').onchange = e => { exc.action = e.target.value; saveData(); render(); };
+      const nd = excRow.querySelector('.exc-newdate');
+      if (nd) nd.onchange = e => { exc.newDate = e.target.value; saveData(); render(); };
+      const na = excRow.querySelector('.exc-newamount');
+      if (na) na.onchange = e => { exc.newAmount = e.target.value === '' ? null : parseFloat(e.target.value); saveData(); render(); };
+      excRow.querySelector('.exc-delete').onclick = () => { item.exceptions.splice(idx, 1); saveData(); render(); };
+    });
+  });
+}
+
+function renderHelp() {
+  const section = (title, body) => `<div class="card"><div class="card-title">${esc(title)}</div>${body}</div>`;
+  let html = `<div class="stack">`;
+
+  html += section("Getting started", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      This app tracks your money across one or more accounts, projects your balance forward based on income and bills you enter,
+      and warns you if something's about to go wrong. Everything is saved automatically in this browser, on this device —
+      no login needed. Go to <strong>Accounts</strong> first and set up at least one account with its current balance.
+    </div>`);
+
+  html += section("Accounts", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      Add one account per bank account or card you want to track. Each has its own balance — income and expenses only
+      affect the account they're assigned to. The <strong>Dashboard</strong> shows both each account separately and everything combined.<br/><br/>
+      <strong>Credit cards</strong> — mark an account as a credit card and enter what you owe as a plain positive number.
+      It automatically counts as debt: it subtracts from your net worth total instead of adding to it, and an interest
+      rate you set there charges monthly on the balance instead of earning on it.<br/><br/>
+      <strong>Interest rate</strong> — works on any account, positive or negative, compounding monthly on whatever
+      day you choose. For savings, a positive rate grows your balance; for credit cards, a positive rate grows what you owe.
+    </div>`);
+
+  html += section("Income &amp; Expenses", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      <strong>Regular income / recurring expenses</strong> repeat on a schedule you set: monthly (pick a day), twice a month
+      (pick two days), every 2 weeks, or every 30 days.<br/><br/>
+      <strong>One-time transactions</strong> are things that happen once — under Income for one-time income
+      (a gift, a reimbursement) and under Expenses for one-time expenses (a bill, a purchase).<br/><br/>
+      <strong>Categories</strong> — shared between Income and Expenses (manage them from either tab). Assign a category to
+      any item, then filter or sort by it. Archiving a category hides it from the picker for new entries without deleting
+      it or breaking anything already using it.<br/><br/>
+      <strong>Sort &amp; filter</strong> — each list has its own sort (custom order, name, amount, or category) and category
+      filter. Reorder (the ▲▼ buttons) only shows up under "custom order" with no filter active — switch back to that
+      combination any time to manually rearrange a list again.<br/><br/>
+      <strong>Temporary / limited run</strong> — check this on a recurring item if it doesn't go on forever, like a
+      Klarna "pay in 4": set it to every 2 weeks, mark it temporary, and choose "after 4 charges."<br/><br/>
+      <strong>First payment is different</strong> — for financed purchases with a down payment (e.g. furniture financing:
+      $200 down, then $50/month), check this and enter the down payment amount; every payment after the first uses the
+      regular amount.<br/><br/>
+      <strong>Weekends/holidays</strong> — if a charge or paycheck actually lands on the nearest business day instead of
+      the exact date (common for direct deposits and bank transfers), set this to move earlier or later. It checks against
+      real US federal holidays, not just weekends.<br/><br/>
+      <strong>One-off adjustments</strong> — for a specific occurrence: "same date, actual amount" covers a bill that
+      varies month to month (phone, electric — enter your ballpark as the regular amount, then adjust each month once you
+      know the real charge), "moved to a different date" covers something that landed early or late, and "didn't happen"
+      skips an occurrence entirely.
+    </div>`);
+
+  html += section("Transfers", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      Move money between your own accounts — paying down a credit card, moving to savings, sending to Venmo or Cash App.
+      Transfers don't count as income or spending, but they do update both accounts' balances. If the transfer service
+      charges a fee, enter it separately: the amount that leaves one account can be more than what arrives in the other.
+    </div>`);
+
+  html += section("History", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      Shows projected income, expenses, transfers, and ending balance by month or year, for one account or everything
+      combined, with an optional category filter. Click any row to expand it and see every individual transaction in that
+      period.<br/><br/>
+      <strong>Export</strong> — "Export summary" downloads the month/year table you're currently viewing as a CSV file;
+      "Export all transactions" downloads every individual transaction line for that same view. Both respect whatever
+      account and category filter is currently selected — set both to "all" first for a complete, unfiltered export.
+      CSV files open directly in Excel, Numbers, or Google Sheets.
+    </div>`);
+
+  html += section("What if", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      <strong>Scenario</strong> — a scratch list for things you're not sure will happen yet (a friend paying you back,
+      a possible bill). Add several items and see their combined effect without touching your real numbers.<br/><br/>
+      <strong>Overdraft check</strong> — scans the next 12 months and flags the first date any account would go below zero.<br/><br/>
+      <strong>When could I afford something?</strong> — enter an amount and it calculates the earliest date you'd
+      actually have that much available, based on your real schedule (optionally including the scenario items too).
+    </div>`);
+
+  html += section("Backing up your data", `
+    <div class="hint" style="font-size:13px;line-height:1.6;color:#c3c8d1">
+      Everything lives only in this browser, on this device. In the <strong>Accounts</strong> tab, use
+      <strong>Export data</strong> to save a backup file, and <strong>Import data</strong> to restore it or move to a
+      new computer. It's worth exporting a backup periodically, and definitely before clearing your browser data or
+      switching browsers/computers.
+    </div>`);
+
+  html += `</div>`;
+  return html;
+}
+
+document.getElementById("importFile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(ev.target.result);
+    } catch (err) {
+      alert("Couldn't read that file. Make sure it's a My Monies backup .json file.");
+      e.target.value = "";
+      return;
+    }
+    if (parsed && parsed.myMoniesEncrypted) {
+      const password = prompt("This backup is password-protected. Enter the password:");
+      if (!password) { e.target.value = ""; return; }
+      try {
+        const decrypted = await decryptBackup(parsed, password);
+        if (decrypted && decrypted.accounts) {
+          migrate(decrypted);
+          data = decrypted;
+          saveData(); render();
+          alert("Import successful.");
+        } else {
+          alert("That decrypted, but doesn't look like a My Monies backup.");
+        }
+      } catch (decErr) {
+        alert("Couldn't decrypt that file — wrong password, or the file is corrupted.");
+      }
+      e.target.value = "";
+      return;
+    }
+    if (parsed && parsed.accounts) {
+      migrate(parsed);
+      data = parsed;
+      saveData(); render();
+      alert("Import successful.");
+    } else {
+      alert("That file doesn't look like a My Monies backup.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+// ---------- text size / zoom ----------
+let uiZoom = parseFloat(localStorage.getItem("ledger-zoom")) || 1;
+function applyZoom() {
+  document.body.style.zoom = uiZoom;
+  document.getElementById("zoomLabel").textContent = Math.round(uiZoom * 100) + "%";
+}
+document.getElementById("zoomOutBtn").onclick = () => {
+  uiZoom = Math.max(0.75, +(uiZoom - 0.1).toFixed(2));
+  localStorage.setItem("ledger-zoom", uiZoom);
+  applyZoom();
+};
+document.getElementById("zoomInBtn").onclick = () => {
+  uiZoom = Math.min(1.75, +(uiZoom + 0.1).toFixed(2));
+  localStorage.setItem("ledger-zoom", uiZoom);
+  applyZoom();
+};
+applyZoom();
+
+render();
+</script>
+</body>
+</html>
+
